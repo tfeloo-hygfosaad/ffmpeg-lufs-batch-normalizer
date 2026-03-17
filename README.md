@@ -56,19 +56,19 @@ kid3-cli -v
 Copy the script:
 
 ```bash
-normalize_lufs.py
+mv ./bin/normalize_lufs.py ~/.local/bin/
 ```
 
 Make it executable:
 
 ```bash
-chmod +x normalize_lufs.py
+chmod +x normalize_lufs
 ```
 
 ## Usage
 
 ```bash
-normalize_lufs.py <input_folder> <output_folder> <options>
+normalize_lufs <input_folder> <output_folder> <options>
 ```
 
 ## Options
@@ -95,7 +95,7 @@ Default behavior:
 Override:
 
 ```bash
-./normalize_lufs.py in out --out-codec mp3
+normalize_lufs in out --out-codec mp3
 ```
 
 ## Example Targets
@@ -103,13 +103,13 @@ Override:
 Streaming-style normalization:
 
 ```bash
-./normalize_lufs.py in out --i -14 --tp -1
+normalize_lufs in out --i -14 --tp -1
 ```
 
 More conservative headroom:
 
 ```bash
-./normalize_lufs.py in out --i -16 --tp -1.5
+normalize_lufs in out --i -16 --tp -1.5
 ```
 
 ## Processing Details
