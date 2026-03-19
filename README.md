@@ -56,7 +56,7 @@ kid3-cli -v
 Copy the script:
 
 ```bash
-mv ./bin/normalize_lufs.py ~/.local/bin/
+mv ./bin/normalize_lufs ~/.local/bin/
 ```
 
 Make it executable:
