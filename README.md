@@ -53,16 +53,16 @@ kid3-cli -v
 
 ## Installation
 
-Copy the script:
+Installing script to your bin folder:
 
 ```bash
-mv ./bin/normalize_lufs.py ~/.local/bin/
+make install
 ```
 
-Make it executable:
+Removing script from it cleanly:
 
 ```bash
-chmod +x normalize_lufs
+make uninstall
 ```
 
 ## Usage
