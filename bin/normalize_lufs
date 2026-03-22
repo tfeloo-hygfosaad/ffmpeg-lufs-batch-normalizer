@@ -137,15 +137,15 @@ def should_skip(infile: Path, outfile: Path):
     return outfile.exists() and outfile.stat().st_mtime >= infile.stat().st_mtime
 
 def process_one(infile: Path, in_root: Path, out_root: Path, target_i: float, target_tp: float, target_lra: float,
-                out_codec: str, mp3_quality: str, force: bool):
+                out_codec: str, mp3_quality: str, skip_existing: bool):
     say(f"[START] {infile}")
     rel = infile.relative_to(in_root)
     # Preserve folder layout; choose output extension
-    codec = out_codec or detect_codec(infile)
+    codec = out_codec
     out_ext = ".mp3" if codec == "mp3" else ".flac"
     outfile = (out_root / rel).with_suffix(out_ext)
 
-    if not force and should_skip(infile, outfile):
+    if skip_existing and should_skip(infile, outfile):
         say(f"[SKIP]  {infile}")
         return ("skip", str(infile), str(outfile), "")
 
@@ -164,16 +164,18 @@ def iter_audio_files(root: Path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("in_root", type=Path)
-    ap.add_argument("out_root", type=Path)
+    ap.add_argument("out_root", type=Path, nargs="?", default=None)
     ap.add_argument("--i", type=float, default=-14.0, help="Target integrated loudness (LUFS)")
     ap.add_argument("--tp", type=float, default=-1.0, help="True peak ceiling (dBTP)")
     ap.add_argument("--lra", type=float, default=11.0, help="Loudness range target (LU)")
-    ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 4) // 2))
-    ap.add_argument("--out-codec", choices=["mp3", "flac"], default=None,
+    ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 4) - 4))
+    ap.add_argument("--out-codec", choices=["mp3", "flac"], default="mp3",
                     help="Force output codec. Default: keep mp3 as mp3, flac as flac, others -> flac")
     ap.add_argument("--mp3-quality", default="0", help="libmp3lame -q:a value (0 best .. 9 worst). Default 0")
-    ap.add_argument("--force", action="store_true", help="Reprocess even if output exists and is newer")
-    ap.add_argument("--log", default="normalize_lufs.log")
+    ap.add_argument("--skip-existing", action="store_true",
+                help="Skip files if output exists and is newer")
+    ap.add_argument("--log", nargs="?", const="normalize_lufs.log", default=None,
+                help="Enable logging. Optionally specify file path")
     args = ap.parse_args()
 
     if shutil.which("ffmpeg") is None:
@@ -181,7 +183,12 @@ def main():
         return 2
 
     in_root = args.in_root.resolve()
-    out_root = args.out_root.resolve()
+
+    if args.out_root:
+        out_root = args.out_root.resolve()
+    else:
+        out_root = in_root.parent / f"{in_root.name} Normalised"
+
     out_root.mkdir(parents=True, exist_ok=True)
 
     files = list(iter_audio_files(in_root))
@@ -189,28 +196,40 @@ def main():
         print("No audio files found.", file=sys.stderr)
         return 1
 
-    with open(args.log, "a", encoding="utf-8") as log:
-        log.write(f"\n=== run in={in_root} out={out_root} I={args.i} TP={args.tp} LRA={args.lra} jobs={args.jobs} ===\n")
+    ok = fail = skip = 0
 
-        ok = fail = skip = 0
+    log = open(args.log, "a", encoding="utf-8") if args.log else None
+
+    try:
+        if log:
+            log.write(f"\n=== run in={in_root} out={out_root} I={args.i} TP={args.tp} LRA={args.lra} jobs={args.jobs} ===\n")
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as ex:
             futs = [ex.submit(process_one, f, in_root, out_root, args.i, args.tp, args.lra,
-                              args.out_codec, args.mp3_quality, args.force) for f in files]
+                    args.out_codec, args.mp3_quality, args.skip_existing) for f in files]
             for fut in concurrent.futures.as_completed(futs):
                 try:
                     status, src, dst, meta = fut.result()
                     if status == "ok":
                         ok += 1
-                        log.write(f"OK   {src} -> {dst} [{meta}]\n")
+                        if log:
+                            log.write(f"OK   {src} -> {dst} [{meta}]\n")
                     else:
                         skip += 1
-                        log.write(f"SKIP {src} -> {dst}\n")
+                        if log:
+                            log.write(f"SKIP {src} -> {dst}\n")
                 except Exception as e:
                     fail += 1
                     say(f"[FAIL]  {e}")
-                    log.write(f"FAIL {e}\n")
-        print(f"done: ok={ok} skip={skip} fail={fail} log={args.log}")
-        return 0 if fail == 0 else 1
+                    if log:
+                        log.write(f"FAIL {e}\n")
+    finally:
+        if log:
+            log.close()
+
+    log_path = args.log if args.log else "disabled"
+    print(f"done: ok={ok} skip={skip} fail={fail} log={log_path}")
+    return 0 if fail == 0 else 1
 
 if __name__ == "__main__":
     raise SystemExit(main())

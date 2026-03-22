@@ -67,35 +67,73 @@ make uninstall
 
 ## Usage
 
+Basic command with all defaults:
+
 ```bash
-normalize_lufs <input_folder> <output_folder> <options>
+normalize_lufs <input_dir> [options]
+```
+
+Output dir defaults to:
+
+```bash
+<input_dir> Normalised
+```
+
+To specify output directory name:
+
+```bash
+normalize_lufs <input_dir> <output_dir> [options]
 ```
 
 ## Options
 
-| Option          | Meaning                                      | Default            |
-| --------------- | -------------------------------------------- | ------------------ |
-| `--i`           | Target integrated loudness (LUFS)            | -14                |
-| `--tp`          | True peak ceiling (dBTP)                     | -1                 |
-| `--lra`         | Loudness range target (LU)                   | 11                 |
-| `--jobs`        | Parallel workers                             | half CPU cores     |
-| `--out-codec`   | Force output codec (`mp3` / `flac`)          | auto               |
-| `--mp3-quality` | `libmp3lame -q:a` value (0 best → 9 worst)   | 0                  |
-| `--force`       | Reprocess even if output exists and is newer | off                |
-| `--log`         | Log file path                                | normalize_lufs.log |
+| Option            | Meaning                                             | Default       |
+| ----------------- | --------------------------------------------------- | --------------|
+| `--i`             | Target integrated loudness (LUFS)                   | -14           |
+| `--tp`            | True peak ceiling (dBTP)                            | -1            |
+| `--lra`           | Loudness range target (LU)                          | 11            |
+| `--jobs`          | Parallel workers                                    | CPU cores - 4 |
+| `--out-codec`     | Force output codec (`mp3` / `flac`)                 | mp3           |
+| `--mp3-quality`   | `libmp3lame -q:a` value (0 best → 9 worst)          | 0             |
+| `--skip-existing` | Skip files if output exists and is newer than input | off           |
+| `--log`           | Log file path                                       | disabled      |
 
 ## Codec Behavior
 
 Default behavior:
 
-- `.mp3` → MP3
-- `.flac` → FLAC
-- everything else → FLAC (avoids lossy→lossy degradation)
+Output mp3
 
 Override:
 
 ```bash
-normalize_lufs in out --out-codec mp3
+normalize_lufs in out --out-codec flac
+```
+
+## Basic Examples
+
+Default usage:
+
+```bash
+normalize_lufs "./Evil Nine/"
+```
+
+Custom output folder name with logging:
+
+```bash
+normalize_lufs "./Evil Nine/" "./Evil Nine Fixed/" --log
+```
+
+Skip already processed files:
+
+```bash
+normalize_lufs "./Evil Nine/" --skip-existing
+```
+
+Output FLAC instead of MP3:
+
+```bash
+normalize_lufs "./Evil Nine/" --out-codec flac
 ```
 
 ## Example Targets
@@ -141,3 +179,8 @@ normalize_lufs in out --i -16 --tp -1.5
 - Processing is CPU-bound.
 - WAV/AIFF/other formats default to FLAC output unless overridden.
 - Without kid3-cli, rating/comment preservation may depend on container behavior.
+- Output is encoded to MP3 by default.
+- All files are processed on every run unless --skip-existing is used.
+- Re-encoding lossy formats (e.g. MP3 → MP3) will reduce quality.
+- Audio is resampled to 48kHz.
+- Cover art and metadata are preserved where possible.
